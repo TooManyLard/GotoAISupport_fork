@@ -18,7 +18,7 @@ exports.handler = async function (event, context) {
     }
 
     try {
-        const { message, sessionId } = JSON.parse(event.body);
+        const { message, sessionId, language } = JSON.parse(event.body);
         if (!message) {
             return {
                 statusCode: 400,
@@ -45,14 +45,16 @@ exports.handler = async function (event, context) {
             }
         }
 
+        // 言語情報を含めたメッセージコンテンツの作成
+        const userMessageContent = `[LANGUAGE: ${language || 'ja'}] ${message}`;
+
         // ユーザーのメッセージをスレッドに追加
         await openai.beta.threads.messages.create(threadId, {
             role: 'user',
-            content: message
+            content: userMessageContent
         });
 
         // アシスタントの返信をストリーミングで取得
-        // Python のコードと同様、stream: true を指定
         const stream = await openai.beta.threads.runs.create(threadId, {
             assistant_id: ASSISTANT_ID,
             stream: true
@@ -64,7 +66,6 @@ exports.handler = async function (event, context) {
         const regexPattern = /〖.*?〗/g;
 
         // ストリームから順次イベントを受け取る
-        // （openai.beta.threads.runs.create が async iterable を返すことを前提）
         for await (const event of stream) {
             if (event && event.data && event.data.delta && Array.isArray(event.data.delta.content)) {
                 for (const block of event.data.delta.content) {
