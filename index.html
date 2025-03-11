@@ -106,6 +106,94 @@
             margin: 0;
         }
         
+        /* 情報入力フォーム画面 */
+        .info-form-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+        }
+        
+        .info-form-screen h1 {
+            font-size: 28px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        .info-form-screen p {
+            color: var(--secondary-color);
+            font-size: 16px;
+            margin-bottom: 30px;
+            max-width: 600px;
+        }
+        
+        .info-form {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark-color);
+        }
+        
+        .form-group input, 
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: var(--transition);
+        }
+        
+        .form-group input:focus, 
+        .form-group textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 165, 153, 0.2);
+            outline: none;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .submit-btn:hover {
+            background-color: #008c82;
+            transform: translateY(-2px);
+        }
+        
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+        
         /* チャット画面 */
         .chat-screen {
             display: none;
@@ -350,6 +438,10 @@
             .message {
                 max-width: 90%;
             }
+            
+            .info-form {
+                padding: 20px;
+            }
         }
         
         @media (min-width: 769px) and (max-width: 1024px) {
@@ -365,7 +457,7 @@
                 color: #e1e4e8;
             }
             
-            .language-card, .chat-container, .input-container {
+            .language-card, .info-form, .chat-container, .input-container {
                 background-color: #252a31;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             }
@@ -384,8 +476,18 @@
                 background-color: #2d333b;
             }
             
-            .language-card p, .chat-header p {
+            .language-card p, .chat-header p, .info-form-screen p {
                 color: #a0a8b1;
+            }
+            
+            .form-group label {
+                color: #e1e4e8;
+            }
+            
+            .form-group input, .form-group textarea {
+                background-color: #2d333b;
+                color: #e1e4e8;
+                border-color: #3d434b;
             }
             
             .bot-message .message-content {
@@ -439,6 +541,31 @@
             </div>
         </div>
         
+        <!-- 情報入力フォーム画面 -->
+        <div class="info-form-screen" id="info-form-screen">
+            <h1 id="info-form-title">物件情報を入力</h1>
+            <p id="info-form-description">サポートを受けるために必要な情報を入力してください</p>
+            
+            <form class="info-form" id="property-form">
+                <div class="form-group">
+                    <label for="property-id" id="property-id-label">物件ID</label>
+                    <input type="text" id="property-id" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="room-number" id="room-number-label">部屋番号</label>
+                    <input type="text" id="room-number" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="issue-description" id="issue-label">お困りのこと</label>
+                    <textarea id="issue-description" required></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn" id="submit-info">送信</button>
+            </form>
+        </div>
+        
         <!-- チャット画面 -->
         <div class="chat-screen" id="chat-screen">
             <div class="chat-header">
@@ -472,9 +599,16 @@
         let sessionId = null;
         // 現在選択されている言語
         let currentLanguage = 'ja'; // デフォルト値（初期選択画面からは上書きされます）
+        // 物件情報を保存
+        let propertyInfo = {
+            propertyId: '',
+            roomNumber: '',
+            issue: ''
+        };
 
         // DOM要素
         const languageSelectScreen = document.getElementById('language-select-screen');
+        const infoFormScreen = document.getElementById('info-form-screen');
         const chatScreen = document.getElementById('chat-screen');
         const chatContainer = document.getElementById('chat-container');
         const messagesContainer = document.getElementById('messages-container');
@@ -482,13 +616,102 @@
         const sendButton = document.getElementById('send-button');
         const languageButtons = document.querySelectorAll('.language-btn');
         const languageCards = document.querySelectorAll('.language-card');
+        const propertyForm = document.getElementById('property-form');
+
+        // フォーム要素
+        const infoFormTitle = document.getElementById('info-form-title');
+        const infoFormDescription = document.getElementById('info-form-description');
+        const propertyIdLabel = document.getElementById('property-id-label');
+        const roomNumberLabel = document.getElementById('room-number-label');
+        const issueLabel = document.getElementById('issue-label');
+        const submitInfoBtn = document.getElementById('submit-info');
+        const propertyIdInput = document.getElementById('property-id');
+        const roomNumberInput = document.getElementById('room-number');
+        const issueInput = document.getElementById('issue-description');
 
         // 言語選択カード初期化
         languageCards.forEach(card => {
             card.addEventListener('click', () => {
                 const selectedLang = card.dataset.lang;
-                startChat(selectedLang);
+                // 言語を設定して情報入力フォームを表示
+                setupInfoForm(selectedLang);
             });
+        });
+
+        // 情報入力フォームのセットアップ
+        function setupInfoForm(lang) {
+            // 言語を設定
+            currentLanguage = lang;
+            
+            // 言語ボタンを更新
+            updateLanguageButtons(lang);
+            
+            // フォームのラベルとテキストを言語に合わせて設定
+            const formTexts = {
+                'en': {
+                    title: 'Enter Property Information',
+                    description: 'Please provide the necessary information to receive support',
+                    propertyIdLabel: 'Property ID',
+                    roomNumberLabel: 'Room Number',
+                    issueLabel: 'Issue Description',
+                    submitBtn: 'Submit'
+                },
+                'ja': {
+                    title: '物件情報を入力',
+                    description: 'サポートを受けるために必要な情報を入力してください',
+                    propertyIdLabel: '物件ID',
+                    roomNumberLabel: '部屋番号',
+                    issueLabel: 'お困りのこと',
+                    submitBtn: '送信'
+                },
+                'ko': {
+                    title: '물건 정보 입력',
+                    description: '지원을 받기 위해 필요한 정보를 입력해주세요',
+                    propertyIdLabel: '물건 ID',
+                    roomNumberLabel: '방 번호',
+                    issueLabel: '문제 설명',
+                    submitBtn: '제출'
+                },
+                'zh': {
+                    title: '输入物业信息',
+                    description: '请提供必要信息以获取支持',
+                    propertyIdLabel: '物业ID',
+                    roomNumberLabel: '房间号',
+                    issueLabel: '问题描述',
+                    submitBtn: '提交'
+                }
+            };
+            
+            const texts = formTexts[lang] || formTexts['en'];
+            
+            infoFormTitle.textContent = texts.title;
+            infoFormDescription.textContent = texts.description;
+            propertyIdLabel.textContent = texts.propertyIdLabel;
+            roomNumberLabel.textContent = texts.roomNumberLabel;
+            issueLabel.textContent = texts.issueLabel;
+            submitInfoBtn.textContent = texts.submitBtn;
+            
+            // 表示切替
+            languageSelectScreen.style.display = 'none';
+            infoFormScreen.style.display = 'flex';
+        }
+
+        // フォーム送信処理
+        propertyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // フォームの値を取得して保存
+            propertyInfo = {
+                propertyId: propertyIdInput.value.trim(),
+                roomNumber: roomNumberInput.value.trim(),
+                issue: issueInput.value.trim()
+            };
+            
+            // チャット画面に移動
+            startChat(currentLanguage);
+            
+            // フォームをリセット
+            propertyForm.reset();
         });
 
         // チャット開始処理
@@ -496,20 +719,14 @@
             // 言語を設定
             currentLanguage = lang;
             
-            // 対応する言語ボタンをアクティブにする
-            languageButtons.forEach(btn => {
-                if (btn.dataset.lang === lang) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
+            // 言語ボタンを更新
+            updateLanguageButtons(lang);
             
             // 表示切替
-            languageSelectScreen.style.display = 'none';
+            infoFormScreen.style.display = 'none';
             chatScreen.style.display = 'flex';
             
-            // 言語ごとのプレースホルダーとウェルカムメッセージ
+            // 言語ごとのプレースホルダー
             const placeholders = {
                 'en': 'Type a message...',
                 'ko': '메시지를 입력하세요...',
@@ -519,18 +736,43 @@
             
             userInput.placeholder = placeholders[lang] || placeholders['en'];
             
-            // ウェルカムメッセージ
-            const welcomeMessages = {
-                'en': 'Welcome to GOTO AI Support. Please provide your property number, room number, and tell us what issue you are experiencing.',
-                'ko': 'GOTO AI 지원에 오신 것을 환영합니다. 물건 번호, 방 번호 및 겪고 계신 문제를 알려주세요.',
-                'ja': 'GOTO AIサポートへようこそ。物件番号、部屋番号、お困りのことを教えてください。',
-                'zh': '欢迎使用GOTO AI支持。请提供您的物业编号、房间号，并告诉我们您遇到了什么问题。'
+            // 物件情報からプロンプトを生成
+            const promptTemplates = {
+                'en': `This is a question about property ${propertyInfo.propertyId}, room ${propertyInfo.roomNumber}:\n\n${propertyInfo.issue}`,
+                'ja': `${propertyInfo.propertyId}の${propertyInfo.roomNumber}についての質問です。\n\n${propertyInfo.issue}`,
+                'ko': `${propertyInfo.propertyId}의 ${propertyInfo.roomNumber}에 대한 질문입니다.\n\n${propertyInfo.issue}`,
+                'zh': `这是关于${propertyInfo.propertyId}的${propertyInfo.roomNumber}的问题。\n\n${propertyInfo.issue}`
             };
             
+            const prompt = promptTemplates[lang] || promptTemplates['en'];
+            
+            // ウェルカムメッセージ
+            const welcomeMessages = {
+                'en': 'Welcome to GOTO AI Support. We are processing your inquiry...',
+                'ko': 'GOTO AI 지원에 오신 것을 환영합니다. 문의를 처리 중입니다...',
+                'ja': 'GOTO AIサポートへようこそ。お問い合わせを処理しています...',
+                'zh': '欢迎使用GOTO AI支持。我们正在处理您的查询...'
+            };
+            
+            // ウェルカムメッセージを表示
             addMessage(welcomeMessages[lang] || welcomeMessages['en'], 'bot');
+            
+            // 自動でプロンプトを送信
+            sendAutoMessage(prompt);
             
             // 入力フィールドにフォーカス
             userInput.focus();
+        }
+        
+        // 言語ボタンを更新
+        function updateLanguageButtons(lang) {
+            languageButtons.forEach(btn => {
+                if (btn.dataset.lang === lang) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
         }
         
         // 言語ボタンの初期化
@@ -634,6 +876,62 @@
             }
         }
 
+        // 自動メッセージ送信（初期の物件情報）
+        async function sendAutoMessage(message) {
+            try {
+                // 入力中表示
+                addTypingIndicator();
+                
+                // Netlify Function にリクエストを送信
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message,
+                        language: currentLanguage,
+                        sessionId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // 入力中表示を削除
+                removeTypingIndicator();
+                
+                if (data.error) {
+                    const errorMessages = {
+                        'en': `Error: ${data.error}`,
+                        'ko': `오류: ${data.error}`,
+                        'ja': `エラー: ${data.error}`,
+                        'zh': `错误: ${data.error}`
+                    };
+                    addMessage(errorMessages[currentLanguage] || errorMessages['en'], 'bot');
+                } else {
+                    // ボットからの応答を表示
+                    addMessage(data.response, 'bot');
+                    // セッションIDを保存
+                    if (data.sessionId) {
+                        sessionId = data.sessionId;
+                    }
+                }
+            } catch (error) {
+                // 入力中表示を削除
+                removeTypingIndicator();
+                
+                const fallbackMessages = {
+                    'en': 'Sorry, something went wrong. Please try again.',
+                    'ko': '죄송합니다. 문제가 발생했습니다. 다시 시도해 주세요.',
+                    'ja': '申し訳ありません。問題が発生しました。もう一度お試しください。',
+                    'zh': '抱歉，出现了问题。请重试。'
+                };
+                
+                addMessage(fallbackMessages[currentLanguage] || fallbackMessages['en'], 'bot');
+                console.error('Error:', error);
+            }
+        }
+
         // メッセージを送信する関数
         async function sendMessage() {
             const message = userInput.value.trim();
@@ -713,6 +1011,12 @@
             if (chatScreen.style.display === 'flex') {
                 event.preventDefault();
                 chatScreen.style.display = 'none';
+                infoFormScreen.style.display = 'none';
+                languageSelectScreen.style.display = 'flex';
+                history.pushState(null, document.title, window.location.href);
+            } else if (infoFormScreen.style.display === 'flex') {
+                event.preventDefault();
+                infoFormScreen.style.display = 'none';
                 languageSelectScreen.style.display = 'flex';
                 history.pushState(null, document.title, window.location.href);
             }
