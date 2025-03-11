@@ -54,44 +54,45 @@ exports.handler = async function (event, context) {
             content: userMessageContent
         });
 
-        // アシスタントの返信をストリーミングで取得
-        const stream = await openai.beta.threads.runs.create(threadId, {
-            assistant_id: ASSISTANT_ID,
-            stream: true
+        // ストリーミングを使わない場合（シンプルな応答の場合）
+        const run = await openai.beta.threads.runs.create(threadId, {
+            assistant_id: ASSISTANT_ID
         });
 
-        // 返信のテキストを蓄積する変数
-        let assistantReply = "";
-        
-        // Streamlitバージョンを参考にしたより具体的な正規表現パターン
-        // 【数字:数字†source】 のような形式に対応
-        // 非貪欲マッチング（*?）を使用して最小限の一致を確保
-        const regexPattern = /【.*?】|〖.*?〗/g;
+        // 実行完了を待つ
+        let runStatus = await openai.beta.threads.runs.retrieve(
+            threadId,
+            run.id
+        );
 
-        // ストリームから順次イベントを受け取る
-        for await (const event of stream) {
-            if (event && event.data && event.data.delta && Array.isArray(event.data.delta.content)) {
-                for (const block of event.data.delta.content) {
-                    if (block.type === 'text' && block.text && block.text.value) {
-                        // テキストチャンクから不要な部分を除去
-                        // undefinedを防ぐため、置換前に文字列が存在することを確認
-                        const textValue = block.text.value || "";
-                        const cleanedChunk = textValue.replace(regexPattern, '');
-                        assistantReply += cleanedChunk;
-                    }
-                }
+        // 応答待ち
+        while (runStatus.status !== 'completed') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+            
+            if (['failed', 'cancelled', 'expired'].includes(runStatus.status)) {
+                throw new Error(`Run ended with status: ${runStatus.status}`);
             }
         }
 
-        // 最終的なアシスタントの返信全体に対しても正規表現を適用
-        // 複数チャンクにまたがったタグに対応するため
-        const finalCleanedReply = assistantReply.replace(regexPattern, '');
+        // 完了した応答を取得
+        let finalResponse = await openai.beta.threads.messages.list(run.thread_id);
+        let responseText = finalResponse.data[0].content[0].text.value;
+        
+        // 【 または 〖 で始まる参照やメタデータを削除
+        let index = responseText.indexOf('【');
+        if (index !== -1) {
+            responseText = responseText.substring(0, index) + '.';
+        }
+        
+        // 〖...〗 で囲まれた部分を除去
+        responseText = responseText.replace(/〖.*?〗/g, '');
 
         // 最終的なアシスタントの返信とセッションID（スレッドID）を返す
         return {
             statusCode: 200,
             body: JSON.stringify({
-                response: finalCleanedReply,
+                response: responseText,
                 sessionId: threadId
             })
         };
