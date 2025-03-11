@@ -62,8 +62,11 @@ exports.handler = async function (event, context) {
 
         // 返信のテキストを蓄積する変数
         let assistantReply = "";
-        // 〖...〗 または【...】で囲まれた部分を除去するための正規表現パターン
-        const regexPattern = /〖.*?〗|【.*?】/g;
+        
+        // Streamlitバージョンを参考にしたより具体的な正規表現パターン
+        // 【数字:数字†source】 のような形式に対応
+        // 非貪欲マッチング（*?）を使用して最小限の一致を確保
+        const regexPattern = /【.*?】|〖.*?〗/g;
 
         // ストリームから順次イベントを受け取る
         for await (const event of stream) {
@@ -71,18 +74,24 @@ exports.handler = async function (event, context) {
                 for (const block of event.data.delta.content) {
                     if (block.type === 'text' && block.text && block.text.value) {
                         // テキストチャンクから不要な部分を除去
-                        const cleanedChunk = block.text.value.replace(regexPattern, '');
+                        // undefinedを防ぐため、置換前に文字列が存在することを確認
+                        const textValue = block.text.value || "";
+                        const cleanedChunk = textValue.replace(regexPattern, '');
                         assistantReply += cleanedChunk;
                     }
                 }
             }
         }
 
+        // 最終的なアシスタントの返信全体に対しても正規表現を適用
+        // 複数チャンクにまたがったタグに対応するため
+        const finalCleanedReply = assistantReply.replace(regexPattern, '');
+
         // 最終的なアシスタントの返信とセッションID（スレッドID）を返す
         return {
             statusCode: 200,
             body: JSON.stringify({
-                response: assistantReply,
+                response: finalCleanedReply,
                 sessionId: threadId
             })
         };
