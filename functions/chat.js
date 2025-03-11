@@ -62,8 +62,8 @@ exports.handler = async function (event, context) {
 
         // 返信のテキストを蓄積する変数
         let assistantReply = "";
-        // 〖...〗 で囲まれた部分を除去するための正規表現パターン
-        const regexPattern = /〖.*?〗/g;
+        // 〖...〗 または【...】で囲まれた部分を除去するための正規表現パターン
+        const regexPattern = /〖.*?〗|【.*?】/g;
 
         // ストリームから順次イベントを受け取る
         for await (const event of stream) {
